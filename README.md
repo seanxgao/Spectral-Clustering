@@ -24,6 +24,7 @@ A high-performance spectral clustering library that implements hierarchical grap
 - [Performance](#performance)
 - [API Reference](#api-reference)
 - [File Structure](#file-structure)
+- [Changelog](#changelog)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -224,32 +225,18 @@ print(f"Structure recovery: {ratio:.1%}")
 
 ## Performance
 
-SCOPE is optimized for both speed and memory efficiency:
-
-- **GPU Acceleration**: Up to 10x speedup on large graphs with CuPy
-- **Sparse Matrices**: Memory-efficient handling of large sparse graphs
-- **Parallel Processing**: Multi-threaded tree construction
-- **Adaptive Algorithms**: Automatic selection of optimal computation paths
+- GPU acceleration with CuPy
+- Sparse matrix support for large graphs
+- Parallel tree construction
 
 ## API Reference
 
 ### Core Functions
 
-- `bicut_group(L, gpueigen=False, gpucut=False, sparse=False)`: Perform spectral bisection
-- `treebuilder(L, thre=None, indices=None, parallel=True)`: Build hierarchical tree
-- `eigen_decomposition(L, gpu=False, sparse=False, k=2)`: Compute Fiedler vector
-- `best_cut_finder(adj, gpu=False, sparse=False)`: Find optimal cut index
-
-### Graph Generation
-
-- `generate_test_laplacian(size1, size2, prob1, prob2, prob_between)`: Two-group test graphs
-- `generate_layers_groups_graph(...)`: Hierarchical multi-level graphs
-- `generate_multi_group_laplacian(num_groups, group_size, prob_within, prob_between)`: Multi-group graphs
-
-### Testing and Visualization
-
-- `test_duration_memory(L, thre=None, show=False, use_parallel=False)`: Performance testing
-- `visualize_laplacian_matrix(laplacian_matrix, show=True)`: Matrix visualization
+- `bicut_group(L)`: Perform spectral bisection
+- `treebuilder(L)`: Build hierarchical tree
+- `eigen_decomposition(L)`: Compute Fiedler vector and eigenvalue
+- `find_connected_components(L)`: Find connected components
 
 For complete API documentation, see [docs/API.md](docs/API.md).
 
@@ -257,56 +244,40 @@ For complete API documentation, see [docs/API.md](docs/API.md).
 
 ```
 spectral-clustering/
-├── SCOPE.py              # Core spectral clustering algorithms
-├── graph_models.py       # Graph generation and visualization utilities
-├── tests.py              # Testing and benchmarking functions
-├── main.py               # Example usage script
-├── requirements.txt      # Python dependencies
-├── docs/
-│   └── API.md           # Complete API documentation
-├── notebooks/
-│   └── demo.ipynb       # Interactive demonstration
-├── scripts/
-│   ├── demo_recovery.py # Clustering recovery demonstration
-│   └── gen_figures.py   # Figure generation
-└── figs/                # Generated figures and plots
+├── SCOPE.py              # Core algorithms
+├── graph_models.py       # Graph generation
+├── tests.py              # Testing functions
+├── docs/API.md           # API documentation
+├── notebooks/demo.ipynb  # Demo notebook
+└── scripts/              # Utility scripts
 ```
 
 ## Use Cases
 
-- **Community Detection**: Find communities in social networks
-- **Image Segmentation**: Cluster pixels in computer vision
-- **Data Clustering**: General-purpose data clustering
-- **Graph Analysis**: Analyze structure in complex networks
-- **Research**: Spectral clustering algorithm development
+- Community detection in networks
+- Image segmentation
+- Data clustering
+- Graph structure analysis
 
 ## Advanced Usage
-
-### Custom Matrix Types
-
-```python
-from SCOPE import matrixtype
-import scipy.sparse as sp
-
-# Convert between different matrix formats
-L_dense = matrixtype(L, sparse=False, gpu=False)  # NumPy array
-L_sparse = matrixtype(L, sparse=True, gpu=False)  # SciPy CSR
-L_gpu = matrixtype(L, sparse=False, gpu=True)     # CuPy array
-```
-
-### Performance Tuning
 
 ```python
 from SCOPE import pilot
 
-# Create custom performance manager
+# Performance tuning
 manager = pilot()
-manager.set_spthre(0.3)        # Use sparse for matrices with <30% density
-manager.set_gputhre(5000, 1000) # Use GPU for matrices >5000 nodes
-
-# Use with treebuilder
+manager.set_gputhre(5000, 1000)  # GPU threshold
 tree = treebuilder(L, manager=manager)
 ```
+
+## Changelog
+
+### 2025-01-25
+
+- `eigen_decomposition` now returns both vector and eigenvalue
+- Smart connectivity detection for large graphs (>5000 nodes)
+- Added `find_connected_components` function
+- Improved numerical precision for small matrices
 
 ## Contributing
 

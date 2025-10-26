@@ -119,52 +119,39 @@ def best_cut_finder(adj, gpu: bool, sparse: bool) -> int:
 
 def eigen_decomposition(L, gpu: bool, sparse: bool, k = 2):
     L_csr = matrixtype(L, gpu=gpu, sparse=sparse)
-    zero_tol = 1e-2
     n = L_csr.shape[0]
 
-    def _solve(k_now):
-        if k_now >= n - 1: #almost never happens
-            # dense fallback
-            L_cd = matrixtype(L_csr, gpu=False, sparse=False) # force CPU dense 
-            w, v = np.linalg.eigh(L_cd)
-            index = np.argsort(w)
-            w = w[index]
-            v = v[:, index]
-            return w, v
+    # For small matrices, use dense solver for better accuracy
+    if n <= 100:
+        L_dense = matrixtype(L_csr, gpu=False, sparse=False)
+        w, v = np.linalg.eigh(L_dense)
+        index = np.argsort(w)
+        w = w[index]
+        v = v[:, index]
+        return v[:, 1], w[1]
+
+    # ---- Compute k=2 eigenvalues directly ----
+    from scipy.sparse.linalg import ArpackNoConvergence
+    try:
         if gpu:
             # gpu_eigsh assumed SciPy-like signature
-            w, v = gpu_eigsh(L_csr, k=k_now, which="SA")
+            w, v = gpu_eigsh(L_csr, k=2, which="SA")
             w = cp.asnumpy(w)
             v = cp.asnumpy(v)
         else:
-            w, v = cpu_eigsh(L_csr, k=k_now, which="SA")
-
-        return w, v
-
-
-    # ---- first try: k (default 2) ----
-    from scipy.sparse.linalg import ArpackNoConvergence
-    flag = True
-    while flag:
-        try:
-            if k >= n-1:
-                k = n-1
-                flag = False
-            w, v = _solve(k)
-            nz = np.where(w > zero_tol)[0]
-            if nz.size:
-                # print(nz[0], "th eigenvalue is the first non-zero one, where k =", k, "n =", n)
-                return v[:, nz[0]]
-            k = min(k*2, n - 1)
-            if matrixtype(L, gpu=False, sparse=False).diagonal().sum() < 1:
-                raise Warning("zero matrix")
-        except ArpackNoConvergence:
-            print("Failed the first try with k =", k)
-            print(L_csr)
-            print("ARPACK did not converge with k =", k)
-            k = min(k*2, n - 1)
-    print(matrixtype(L, gpu=False, sparse=False))
-    raise ValueError("All eigenvalues are numerically zero; cannot proceed.")
+            w, v = cpu_eigsh(L_csr, k=2, which="SA")
+        
+        return v[:, 1], w[1]  # Return second eigenvector and second eigenvalue
+        
+    except ArpackNoConvergence:
+        print("ARPACK did not converge with k = 2")
+        # Fallback to dense computation
+        L_cd = matrixtype(L_csr, gpu=False, sparse=False)
+        w, v = np.linalg.eigh(L_cd)
+        index = np.argsort(w)
+        w = w[index]
+        v = v[:, index]
+        return v[:, 1], w[1]
     
 class pilot:
     def __init__(self):
@@ -235,12 +222,40 @@ def bicut_group(L, gpueigen=False, gpucut=False, sparse=False):
     if n == 2:
         return [0], [1]
 
-    fiedler = eigen_decomposition(L, gpu=gpueigen, sparse=sparse)
+    # For large graphs (n > 5000), check connectivity first
+    if n > 5000:
+        first_component, second_component = find_connected_components(L)
+        if len(second_component) > 0:
+            # Graph is disconnected, return connected components
+            first_group = list(first_component)
+            second_group = list(second_component)
+            
+            if 0 in first_group:
+                return first_group, second_group
+            else:
+                return second_group, first_group
+        # If connected, continue with normal spectral clustering
     
+    # Get Fiedler vector and eigenvalue using eigen_decomposition
+    fiedler, eigenvalue = eigen_decomposition(L, gpu=gpueigen, sparse=sparse)
+    
+    # Check if second eigenvalue is close to zero (graph disconnected)
+    if eigenvalue <= 1e-2:
+        # Graph is disconnected, use Fiedler vector for cut
+        # Group 1: non-zero values, Group 2: zero values
+        tolerance = np.mean(np.abs(fiedler)) * 1e-2
+        group1 = np.where(np.abs(fiedler) > tolerance)[0]
+        group2 = np.where(np.abs(fiedler) <= tolerance)[0]
+        
+        # Ensure node 0 is in first group
+        if 0 in group1:
+            return group1.tolist(), group2.tolist()
+        else:
+            return group2.tolist(), group1.tolist()
+    
+    # Normal spectral clustering path
     sorted_args = np.argsort(fiedler)
-    
     adj = -L[np.ix_(sorted_args, sorted_args)]
-    
     best_cut = best_cut_finder(adj, gpu=gpucut, sparse=sparse)
 
     first_group = sorted_args[:best_cut]
@@ -480,3 +495,50 @@ def sparse_score(L):
         s = float(X.diagonal().sum(dtype=np.float64))
 
     return s / (n * n)
+
+def find_connected_components(laplacian_matrix):
+    """
+    Find connected components of a graph represented by its Laplacian matrix.
+    Uses matrixtype to convert to SciPy sparse matrix for optimal performance.
+    
+    Args:
+        laplacian_matrix: Laplacian matrix L = D - A (any supported type)
+    
+    Returns:
+        tuple: (first_component, second_component) where:
+            - first_component: set of indices in the connected component containing index 0
+            - second_component: set of indices in all other connected components
+    """
+    # Convert to SciPy sparse matrix using matrixtype
+    L_sparse = matrixtype(laplacian_matrix, sparse=True, gpu=False)
+    
+    # Get adjacency matrix A = D - L
+    n = L_sparse.shape[0]
+    degrees = np.array(L_sparse.diagonal())
+    A = -L_sparse.copy()
+    A.setdiag(degrees)
+    
+    # BFS to find connected component containing node 0
+    connected = set()
+    queue = [0]
+    
+    while queue:
+        current = queue.pop(0)
+        if current in connected:
+            continue
+            
+        connected.add(current)
+        
+        # Get neighbors from sparse matrix row
+        row = A.getrow(current)
+        neighbors = row.indices[row.data != 0]  # This is correct for adjacency matrix
+        
+        for neighbor in neighbors:
+            if neighbor not in connected and neighbor not in queue:
+                queue.append(neighbor)
+    
+    # Second component is the complement
+    all_nodes = set(range(n))
+    complement = all_nodes - connected
+    
+    return connected, complement

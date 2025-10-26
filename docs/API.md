@@ -11,6 +11,7 @@ This project implements a spectral clustering algorithm called SCOPE (Spectral C
   - [best_cut_finder](#best_cut_finder)
   - [eigen_decomposition](#eigen_decomposition)
   - [bicut_group](#bicut_group)
+  - [find_connected_components](#find_connected_components)
   - [treebuilder](#treebuilder)
   - [matrixtype](#matrixtype)
   - [sparse_score](#sparse_score)
@@ -67,7 +68,7 @@ best_cut_finder(adj, gpu: bool, sparse: bool) -> int
 eigen_decomposition(L, gpu: bool, sparse: bool, k: int = 2)
 ```
 
-**Purpose**: Compute the Fiedler vector (second smallest eigenvector) of a Laplacian matrix for spectral clustering.
+**Purpose**: Compute the Fiedler vector (second smallest eigenvector) and its corresponding eigenvalue of a Laplacian matrix for spectral clustering.
 
 **Parameters**:
 - `L`: Laplacian matrix (numpy array, scipy sparse, or cupy array)
@@ -76,9 +77,15 @@ eigen_decomposition(L, gpu: bool, sparse: bool, k: int = 2)
 - `k`: Number of eigenvalues to compute (default: 2, for Fiedler vector)
 
 **Returns**:
-- `numpy.ndarray`: Fiedler vector (second smallest eigenvector)
+- `tuple`: (fiedler_vector, eigenvalue) where:
+  - `fiedler_vector`: Second smallest eigenvector (numpy.ndarray)
+  - `eigenvalue`: Second smallest eigenvalue (float)
 
-**Algorithm**: Uses ARPACK (CPU) or CuPy's eigensolver (GPU) to find the smallest eigenvalues. Automatically increases k if convergence fails.
+**Algorithm**: 
+- For small matrices (≤100 nodes): Uses dense solver (`np.linalg.eigh`) for better numerical accuracy
+- For larger matrices: Uses ARPACK (CPU) or CuPy's eigensolver (GPU) to find the smallest eigenvalues
+- Includes fallback to dense computation if ARPACK fails to converge
+- Automatically converts input to optimal matrix format using `matrixtype`
 
 ---
 
@@ -88,7 +95,7 @@ eigen_decomposition(L, gpu: bool, sparse: bool, k: int = 2)
 bicut_group(L, gpueigen: bool = False, gpucut: bool = False, sparse: bool = False)
 ```
 
-**Purpose**: Perform spectral bisection on a graph using the Fiedler vector to find optimal cut.
+**Purpose**: Perform spectral bisection on a graph using the Fiedler vector to find optimal cut, with intelligent handling of disconnected graphs.
 
 **Parameters**:
 - `L`: Laplacian matrix of the graph
@@ -100,10 +107,38 @@ bicut_group(L, gpueigen: bool = False, gpucut: bool = False, sparse: bool = Fals
 - `tuple`: (first_group, second_group) - Two lists of node indices
 
 **Algorithm**:
-1. Compute Fiedler vector using `eigen_decomposition`
-2. Sort nodes by Fiedler vector values
-3. Find optimal cut using `best_cut_finder`
-4. Return two groups of nodes
+1. **Large Graph Preprocessing**: For graphs > 5000 nodes, check connectivity first using `find_connected_components`
+2. **Connectivity Detection**: If disconnected, return connected components directly
+3. **Spectral Analysis**: Compute Fiedler vector and eigenvalue using `eigen_decomposition`
+4. **Disconnected Graph Handling**: If eigenvalue ≤ 1e-2, use Fiedler vector values for cut (zero vs non-zero with tolerance)
+5. **Normal Spectral Clustering**: Sort nodes by Fiedler vector and find optimal cut using `best_cut_finder`
+6. **Node Assignment**: Ensure node 0 is always in the first group
+
+---
+
+### `find_connected_components`
+
+```python
+find_connected_components(laplacian_matrix)
+```
+
+**Purpose**: Find the connected component containing node 0 and its complement using breadth-first search.
+
+**Parameters**:
+- `laplacian_matrix`: Laplacian matrix (any supported format: numpy, scipy sparse, cupy, cupy sparse)
+
+**Returns**:
+- `tuple`: (connected_component, complement) where:
+  - `connected_component`: Set of nodes connected to node 0
+  - `complement`: Set of all other nodes
+
+**Algorithm**:
+1. Convert input matrix to SciPy sparse format using `matrixtype`
+2. Perform breadth-first search starting from node 0
+3. Track all visited nodes as the connected component
+4. Return connected component and its complement
+
+**Note**: Efficient for large sparse graphs. Automatically handles matrix type conversion.
 
 ---
 
@@ -494,14 +529,20 @@ plot_results(csv_filename='parallel_test_results.csv')
 ### Basic Spectral Clustering
 
 ```python
-from SCOPE import bicut_group, treebuilder
+from SCOPE import bicut_group, treebuilder, eigen_decomposition, find_connected_components
 from graph_models import generate_test_laplacian
 
 # Generate test graph
 L = generate_test_laplacian(50, 50, 0.8, 0.8, 0.1)
 
-# Single bisection
+# Single bisection (with automatic connectivity detection)
 group1, group2 = bicut_group(L)
+
+# Manual eigen decomposition (returns vector and eigenvalue)
+fiedler_vector, eigenvalue = eigen_decomposition(L, gpu=False, sparse=False)
+
+# Check connectivity manually
+connected, complement = find_connected_components(L)
 
 # Build complete tree
 tree = treebuilder(L, thre=5)
@@ -548,3 +589,9 @@ combine_three_figures(fig1, fig2, fig3, titles=['Original', 'Shuffled', 'Restore
 - Sparse matrices are used for large graphs to save memory
 - Parallel tree building is available for multi-core systems
 - The algorithm automatically chooses optimal computation paths based on matrix properties
+
+## Recent Updates (2025-01-25)
+
+- `eigen_decomposition` now returns `(vector, eigenvalue)` tuple
+- Smart connectivity detection for large graphs
+- Added `find_connected_components` function
