@@ -1,10 +1,10 @@
-# SCOPE: Spectral Clustering fOr Pattern dEtection
+# SCOPE: Spectral Clustering for Optimized Pattern Estimation
 
 [![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GPU Support](https://img.shields.io/badge/GPU-CuPy%20Optional-green.svg)](https://cupy.dev/)
 
-A high-performance spectral clustering library that implements hierarchical graph clustering using spectral bisection with optional GPU acceleration.
+A high-performance spectral clustering library that implements hierarchical graph clustering using spectral bisection with optional CPU pipeline and GPU acceleration.
 
 ## Features
 
