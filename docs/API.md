@@ -15,7 +15,7 @@ This project implements a spectral clustering algorithm called SCOPE (Spectral C
   - [treebuilder](#treebuilder)
   - [matrixtype](#matrixtype)
   - [sparse_score](#sparse_score)
-  - [pilot class](#pilot-class)
+  - [Pilot class](#pilot-class)
   - [BiCutNode class](#bicutnode-class)
 
 ### Graph Generation and Utilities
@@ -145,7 +145,7 @@ find_connected_components(laplacian_matrix)
 ### `treebuilder`
 
 ```python
-treebuilder(L, thre: int = None, indices: list = None, parallel: bool = True, manager: pilot = None)
+treebuilder(L, thre: int = None, indices: list = None, parallel: bool = True, manager: Pilot = None)
 ```
 
 **Purpose**: Recursively build a binary tree structure by applying spectral bisection to create hierarchical clusters.
@@ -155,7 +155,7 @@ treebuilder(L, thre: int = None, indices: list = None, parallel: bool = True, ma
 - `thre`: Threshold for stopping recursion (nodes ≤ thre become leaves)
 - `indices`: List of indices to process (None means all vertices)
 - `parallel`: Use parallel processing for tree construction
-- `manager`: Pilot object for managing GPU/sparse decisions
+- `manager`: `Pilot` object for managing GPU/sparse decisions
 
 **Returns**:
 - `BiCutNode`: Root of the binary tree structure
@@ -208,7 +208,7 @@ sparse_score(L) -> float
 
 ---
 
-### `pilot` class
+### `Pilot` class
 
 **Purpose**: Manages GPU and sparse computation decisions based on matrix properties and thresholds.
 

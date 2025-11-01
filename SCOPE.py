@@ -2,7 +2,8 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from scipy import sparse as sp
 from scipy.sparse.linalg import eigsh as cpu_eigsh
-import os, math
+import os
+import math
 from concurrent.futures import ThreadPoolExecutor
 try:
     import cupy as cp
@@ -117,7 +118,7 @@ def best_cut_finder(adj, gpu: bool, sparse: bool) -> int:
     else:
         return _best_cut_sparse_sp(adj)   if sparse else _best_cut_dense_np(adj)
 
-def eigen_decomposition(L, gpu: bool, sparse: bool, k = 2):
+def eigen_decomposition(L, gpu: bool, sparse: bool, k: int = 2):
     L_csr = matrixtype(L, gpu=gpu, sparse=sparse)
     n = L_csr.shape[0]
 
@@ -153,7 +154,7 @@ def eigen_decomposition(L, gpu: bool, sparse: bool, k = 2):
         v = v[:, index]
         return v[:, 1], w[1]
     
-class pilot:
+class Pilot:
     def __init__(self):
         self.parallel = False
 
@@ -287,23 +288,23 @@ class BiCutNode:
         return order
     
     def print_fancy_tree(self, prefix="", is_last=True, is_root=True):
-        """Print tree with fancy box-drawing characters"""
+        """Print tree with box-drawing characters."""
         if is_root:
-            print("┌─ BiCut Tree Structure")
+            print("+- BiCut Tree Structure")
         
-        connector = "├─" if is_root else ("└─" if is_last else "├─")
+        connector = "+-" if is_root else ("+-" if is_last else "+-")
         indices_str = f"[{', '.join(map(str, sorted(self.indices)))}]"
         
         print(f"{prefix}{connector} {indices_str}")
         
-        new_prefix = prefix + ("│  " if is_root else ("   " if is_last else "│  "))
+        new_prefix = prefix + ("|  " if is_root else ("   " if is_last else "|  "))
         children = [child for child in [self.left, self.right] if child is not None]
         
         for i, child in enumerate(children):
             is_last_child = (i == len(children) - 1)
             child.print_fancy_tree(new_prefix, is_last_child, False)
 
-def treebuilder(L, thre = None, indices=None, parallel = True, manager = None):
+def treebuilder(L, thre: int = None, indices: list = None, parallel: bool = True, manager: Pilot = None):
     """
     Recursively apply bi-cut to create a tree structure.
     
@@ -316,7 +317,7 @@ def treebuilder(L, thre = None, indices=None, parallel = True, manager = None):
     """
 
     if manager is None:
-        manager = pilot()
+        manager = Pilot()
         manager.parallel = parallel
         manager.set_spthre(0.25)
         manager.set_gputhre(10000, 1000)
@@ -382,11 +383,11 @@ def treebuilder(L, thre = None, indices=None, parallel = True, manager = None):
         from scipy.sparse.linalg import ArpackError
         try:
             g1_local, g2_local = bicut_group(L_sub, gpueigen=gpueig, gpucut=gpucut, sparse=sparse)
-            if not g1_local.shape[0] or not g2_local.shape[0]:
+            if not len(g1_local) or not len(g2_local):
                 raise ValueError("Bi-cut resulted in an empty group; cannot proceed.")
         except ArpackError as e:
             print(f"Error occurred during bi-cut: {e}")
-            return
+            return None
 
         # Local → Global
         g1 = [idxs[i] for i in g1_local]

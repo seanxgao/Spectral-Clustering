@@ -30,7 +30,7 @@ def laplacian_to_adjacency(L):
 
 def fiedler_order(L):
     """Return vertex order sorted by the Fiedler vector."""
-    v = eigen_decomposition(L, gpu=False, sparse=False, k=2)
+    v, _ = eigen_decomposition(L, gpu=False, sparse=False, k=2)
     fiedler = np.asarray(v).flatten()
     return np.argsort(fiedler)
 

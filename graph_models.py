@@ -21,25 +21,25 @@ def generate_test_laplacian(size1, size2, prob1, prob2, prob_between):
     n = size1 + size2
     adj = np.zeros((n, n))
     
-# Generate edges within first group (0 to size1-1)
+    # Generate edges within first group (0 to size1-1)
     for i in range(size1):
         for j in range(i+1, size1):
             if np.random.random() < prob1:
                 adj[i, j] = adj[j, i] = 1
     
-# Generate edges within second group (size1 to n-1)
+    # Generate edges within second group (size1 to n-1)
     for i in range(size1, n):
         for j in range(i+1, n):
             if np.random.random() < prob2:
                 adj[i, j] = adj[j, i] = 1
     
-# Generate edges between groups
+    # Generate edges between groups
     for i in range(size1):
         for j in range(size1, n):
             if np.random.random() < prob_between:
                 adj[i, j] = adj[j, i] = 1
     
-# Create Laplacian matrix L = D - A
+    # Create Laplacian matrix L = D - A
     degree = np.sum(adj, axis=1)
     laplacian = np.diag(degree) - adj
     
@@ -58,43 +58,42 @@ def generate_multi_group_laplacian(num_groups, group_size, prob_within, prob_bet
     Returns:
         numpy array: Laplacian matrix L = D - A
     """
-    
-# Validate inputs
+    # Validate inputs
     if num_groups <= 0 or group_size <= 0:
         raise ValueError("num_groups and group_size must be positive integers")
     if not (0 <= prob_within <= 1) or not (0 <= prob_between <= 1):
         raise ValueError("Probabilities must be between 0 and 1")
     
-# Calculate total number of nodes
+    # Calculate total number of nodes
     total_nodes = num_groups * group_size
     
-# Initialize adjacency matrix
+    # Initialize adjacency matrix
     adj = np.zeros((total_nodes, total_nodes))
     
-# Generate edges within each group
+    # Generate edges within each group
     for group_id in range(num_groups):
         start_idx = group_id * group_size
         end_idx = (group_id + 1) * group_size
         
-# Generate all possible pairs within this group
+        # Generate all possible pairs within this group
         for i in range(start_idx, end_idx):
             for j in range(i + 1, end_idx):
                 if np.random.random() < prob_within:
                     adj[i, j] = adj[j, i] = 1
     
-# Generate edges between different groups
+    # Generate edges between different groups
     for group1 in range(num_groups):
         for group2 in range(group1 + 1, num_groups):
             start1, end1 = group1 * group_size, (group1 + 1) * group_size
             start2, end2 = group2 * group_size, (group2 + 1) * group_size
             
-# Generate edges between group1 and group2
+            # Generate edges between group1 and group2
             for i in range(start1, end1):
                 for j in range(start2, end2):
                     if np.random.random() < prob_between:
                         adj[i, j] = adj[j, i] = 1
     
-# Create Laplacian matrix L = D - A
+    # Create Laplacian matrix L = D - A
     degree = np.sum(adj, axis=1)
     laplacian = np.diag(degree) - adj
 
@@ -124,7 +123,7 @@ def generate_layers_groups_graph(
     def get_node_index(group, subgroup, node):
         return (group * num_subgroups_per_supergroup + subgroup) * nodes_per_subgroup + node
 
-# Intra-supergroup connections
+    # Intra-supergroup connections
     for g in range(num_supergroups):
         for sg1 in range(num_subgroups_per_supergroup):
             for sg2 in range(num_subgroups_per_supergroup):
@@ -138,7 +137,7 @@ def generate_layers_groups_graph(
                         if np.random.rand() < p:
                             A[i, j] = A[j, i] = 1
 
-# Inter-supergroup connections
+    # Inter-supergroup connections
     for g1 in range(num_supergroups):
         for g2 in range(g1 + 1, num_supergroups):
             for sg1 in range(num_subgroups_per_supergroup):
@@ -156,28 +155,18 @@ def generate_layers_groups_graph(
     return L
 
 def matrix_shuffle(matrix):
-
     """
-
     Randomly permute rows and columns of a matrix.
 
-
     Parameters
-
     ----------
-
     matrix : ndarray
-
         Input matrix.
 
     Returns
-
     -------
-
     ndarray
-
         Permuted matrix.
-
     """
     random_order = random.sample(range(len(matrix)), len(matrix))
     permuted_lap = matrix[np.ix_(random_order, random_order)]
@@ -193,19 +182,19 @@ def visualize_laplacian_matrix(laplacian_matrix, show = True):
     Returns:
         visualization of the connections
     """
-    if sp.isspmatrix_csr(laplacian_matrix): laplacian_matrix = laplacian_matrix.toarray()
-# Filled the matrix's diagonal with 0
-# Create binary matrix: 1 for non-zero elements, 0 for zero elements
+    if sp.isspmatrix_csr(laplacian_matrix):
+        laplacian_matrix = laplacian_matrix.toarray()
+    # Create binary matrix: 1 for non-zero elements, 0 for zero elements
     binary_matrix = (laplacian_matrix != 0).astype(int)
     
-# Create the plot
-    fig, ax = plt.subplots(figsize=(6,6))
+    # Create the plot
+    fig, ax = plt.subplots(figsize=(6, 6))
     
-# Display the matrix: black for non-zero (1), white for zero (0)
+    # Display the matrix: black for non-zero (1), white for zero (0)
     im = ax.imshow(binary_matrix, cmap='gray_r', interpolation='nearest')
     
     if show:
-# Show the plot
+        # Show the plot
         plt.show()
     else:
         return fig
@@ -221,27 +210,27 @@ def combine_three_figures(fig1, fig2, fig3, titles=None):
     Returns:
         Combined figure
     """
-# Create new figure with 3 subplots
+    # Create new figure with 3 subplots
     combined_fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(12, 4))
     
-# Get the image data from each figure
+    # Get the image data from each figure
     img1 = fig1.axes[0].images[0].get_array()
     img2 = fig2.axes[0].images[0].get_array()
     img3 = fig3.axes[0].images[0].get_array()
     
-# Display in new subplots
+    # Display in new subplots
     ax1.imshow(img1, cmap='gray_r', interpolation='nearest')
     ax2.imshow(img2, cmap='gray_r', interpolation='nearest')
     ax3.imshow(img3, cmap='gray_r', interpolation='nearest')
     
-# Add titles if provided
+    # Add titles if provided
     if titles:
         ax1.set_title(titles[0])
         ax2.set_title(titles[1])
         ax3.set_title(titles[2])
     
     plt.show()
-# Close the original figures to free memory
+    # Close the original figures to free memory
     plt.close(fig1)
     plt.close(fig2)
     plt.close(fig3)

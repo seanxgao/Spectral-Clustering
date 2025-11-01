@@ -262,22 +262,13 @@ spectral-clustering/
 ## Advanced Usage
 
 ```python
-from SCOPE import pilot
+from SCOPE import Pilot
 
 # Performance tuning
-manager = pilot()
+manager = Pilot()
 manager.set_gputhre(5000, 1000)  # GPU threshold
 tree = treebuilder(L, manager=manager)
 ```
-
-## Changelog
-
-### 2025-01-25
-
-- `eigen_decomposition` now returns both vector and eigenvalue
-- Smart connectivity detection for large graphs (>5000 nodes)
-- Added `find_connected_components` function
-- Improved numerical precision for small matrices
 
 ## Contributing
 
